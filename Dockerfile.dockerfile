@@ -5,7 +5,6 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # 3. Install the system dependencies Playwright needs
-# This is the step that makes Docker necessary
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libnss3 \
@@ -19,18 +18,16 @@ RUN apt-get update && \
     libasound2 && \
     rm -rf /var/lib/apt/lists/*
 
-# 4. Install the Playwright browser (Chromium)
-# We run this BEFORE installing Python requirements for better caching
-RUN pip install playwright
-RUN playwright install chromium
-
-# 5. Copy and install your Python app's requirements
+# 4. Copy and install your Python app's requirements FIRST
+# This ensures the correct Playwright version is installed before downloading browsers
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# 5. NOW, install the Playwright browser using the just-installed package
+RUN playwright install chromium
 
 # 6. Copy your application code into the container
 COPY main.py .
 
 # 7. Tell the container what command to run on start
-# This exposes your app on port 8000, which Railway will detect
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
