@@ -946,6 +946,15 @@ origins = [
     "http://localhost",
     "http://localhost:8080",
     "http://localhost:3000",
+
+    # Your production domains
+    "https://godseyes.world",
+    "https://www.godseyes.world",
+    
+    # You can add these if you test without HTTPS,
+    # but remove them in final production.
+    "http://godseyes.world",
+    "http://www.godseyes.world",
 ]
 
 app.add_middleware(
