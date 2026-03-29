@@ -30,6 +30,8 @@ SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
 WORKER_CONCURRENCY = int(os.environ.get("WORKER_CONCURRENCY", "5"))
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "3"))
+STORAGE_MODE_API = os.environ.get("STORAGE_MODE_API", "false").lower() == "true"
+DEBUG_MODE = os.environ.get("DEBUG_MODE", "false").lower() == "true"
 CALLBACK_TIMEOUT_SEC = 30
 CALLBACK_MAX_ATTEMPTS = 3
 
@@ -98,6 +100,7 @@ async def process_job(message: aio_pika.IncomingMessage, client: Client, channel
 
     async with semaphore:
         try:
+            log.info(f"Decoding message body: {message.body}")
             payload = json.loads(message.body)
             job_id = payload["job_id"]
             query = payload["query"]
@@ -142,7 +145,20 @@ async def process_job(message: aio_pika.IncomingMessage, client: Client, channel
                 "error_message": result.error_message,
             }
 
-            await deliver_callback(job_id, callback_url, callback_payload)
+            # Save result to Supabase OR deliver via callback, depending on STORAGE_MODE_API
+            product_id = payload.get("product_id")  # optional field from gateway payload
+            await _save_result(
+                job_id=job_id,
+                result=result,
+                client=client,
+                callback_url=callback_url,
+                product_id=product_id,
+            )
+
+            # When in Supabase mode the callback_payload is still sent so callers
+            # can poll for completion using the job status endpoint.
+            if not STORAGE_MODE_API:
+                await deliver_callback(job_id, callback_url, callback_payload)
 
             final_status = "completed" if result.success else "failed"
             await update_status(client, job_id, final_status)
@@ -194,6 +210,7 @@ async def consume(client: Client):
             log.info(f"Ready — consuming with concurrency={WORKER_CONCURRENCY}")
 
             async def on_message(msg: aio_pika.IncomingMessage):
+                log.info("📩 Message received from RabbitMQ — creating task...")
                 asyncio.create_task(process_job(msg, client, channel))
 
             await job_queue.consume(on_message)
@@ -214,6 +231,111 @@ async def consume(client: Client):
 def handle_shutdown(sig):
     log.info(f"Received {sig.name} — shutting down gracefully...")
     shutdown_event.set()
+
+
+async def _save_result(
+    job_id: str,
+    result,  # ScrapingResult from scraper.py
+    client: Client,
+    callback_url: str,
+    product_id: Optional[str] = None,
+):
+    """Save the Perplexity scraping result to Supabase or deliver via callback.
+
+    Controlled by the STORAGE_MODE_API env flag:
+      - True  → POST result to callback_url (API / polling mode)
+      - False → INSERT row into product_analysis_perplexity table
+    """
+    import traceback
+
+    try:
+        if DEBUG_MODE:
+            log.info(f"[{job_id}] 🐛 DEBUG: storage_mode_api={STORAGE_MODE_API}")
+            log.info(f"[{job_id}] 🐛 DEBUG: success={result.success}, sources={len(result.source_links)}")
+
+        # ── Build the source_links list using Perplexity SourceLink fields ──
+        serialised_links = [
+            {
+                "text": link.text,
+                "url": link.url,
+                "raw_url": link.raw_url,
+                "highlight_fragment": link.highlight_fragment,
+                "related_claim": link.related_claim,
+                "extraction_order": link.extraction_order,
+            }
+            for link in result.source_links
+        ]
+
+        # ── STORAGE_MODE_API = True → send via callback URL ──
+        if STORAGE_MODE_API:
+            api_payload = {
+                "job_id": job_id,
+                "product_id": product_id,
+                "query": result.query,
+                "success": result.success,
+                "ai_overview_text": result.ai_overview_text,
+                "ai_overview_found": bool(result.ai_overview_text.strip()),
+                "source_links": serialised_links,
+                "timestamp": result.timestamp,
+                "error_message": result.error_message,
+            }
+            if DEBUG_MODE:
+                log.info(f"[{job_id}] 🐛 DEBUG: Sending result to callback: {callback_url}")
+            await deliver_callback(job_id, callback_url, api_payload)
+            log.info(f"[{job_id}] Result delivered via API callback")
+            return
+
+        # ── STORAGE_MODE_API = False → save to Supabase ──
+        # Map to the product_analysis_perplexity schema:
+        #   - optimization_prompt  → the query text (NOT NULL)
+        #   - raw_serp_results     → full JSONB payload
+        #   - product_id           → passed in or derived from job payload
+        ai_found = bool(result.ai_overview_text.strip())
+
+        raw_serp = {
+            "query": result.query,
+            "success": result.success,
+            "timestamp": result.timestamp,
+            "ai_overview_text": result.ai_overview_text,
+            "ai_overview_found": ai_found,
+            "source_links": serialised_links,
+            "error_message": result.error_message,
+            # Perplexity-specific metadata
+            "total_interactions": result.total_interactions,
+            "structure_type": "perplexity_ai_overview",
+            "query_modifications_tried": [result.query],
+            "did_query_pop_ai_overview": ai_found,
+        }
+
+        row = {
+            "optimization_prompt": result.query,   # NOT NULL — must be set
+            "raw_serp_results": raw_serp,
+        }
+        # Only include product_id when provided (it is a FK, must be a valid UUID)
+        if product_id:
+            row["product_id"] = product_id
+
+        if DEBUG_MODE:
+            log.info(f"[{job_id}] 🐛 DEBUG: Inserting into product_analysis_perplexity")
+            log.info(f"[{job_id}] 🐛 DEBUG: Row keys: {list(row.keys())}")
+
+        response = client.table("product_analysis_perplexity").insert(row).execute()
+
+        if DEBUG_MODE:
+            log.info(f"[{job_id}] 🐛 DEBUG: Supabase response data: {response.data}")
+
+        if response.data:
+            saved_id = response.data[0].get("id")
+            log.info(f"[{job_id}] ✅ Saved to product_analysis_perplexity — id={saved_id}")
+            log.info(f"[{job_id}]    ai_text={len(result.ai_overview_text)} chars, sources={len(result.source_links)}")
+        else:
+            log.error(f"[{job_id}] ❌ Supabase insert returned no data: {response}")
+
+    except Exception as e:
+        log.error(f"[{job_id}] ❌ _save_result error: {e}")
+        if DEBUG_MODE:
+            log.error(f"[{job_id}] 🐛 DEBUG: {traceback.format_exc()}")
+        # Non-fatal — do not crash the job
 
 
 # ==================== ENTRYPOINT ====================
@@ -243,4 +365,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main())

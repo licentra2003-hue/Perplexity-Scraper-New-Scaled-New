@@ -10,7 +10,7 @@ from threading import Thread
 # ==================== CONFIG ====================
 GATEWAY_URL = "http://localhost:8000/api/v1/scrape"
 STATUS_URL = "http://localhost:8000/api/v1/job-status/{job_id}"
-CALLBACK_HOST = "127.0.0.1" # Standard local IP
+CALLBACK_HOST = "0.0.0.0"
 CALLBACK_PORT = 9999
 CALLBACK_URL = f"http://host.docker.internal:{CALLBACK_PORT}/callback"
 

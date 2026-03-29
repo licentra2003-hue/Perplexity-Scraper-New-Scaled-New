@@ -166,11 +166,10 @@ func (a *App) handleScrape(c *fiber.Ctx) error {
 		"status":       "queued",
 		"callback_url": req.CallbackURL,
 		"engine":       "perplexity",
-		"created_at":   time.Now().Format(time.RFC3339),
 	}
 	_, _, err = a.sb.From("processed_jobs").Insert(row, false, "exact", "", "").Execute()
 	if err != nil {
-		log.Printf("[%s] Failed to insert job: %v", req.JobID, err)
+		log.Printf("[DB] Insert error: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "failed to register job",
 		})
@@ -202,13 +201,11 @@ func (a *App) handleScrape(c *fiber.Ctx) error {
 		},
 	)
 	if err != nil {
-		log.Printf("[%s] Failed to publish to RabbitMQ: %v", req.JobID, err)
-		// Roll back the DB insert so the caller can retry
-		_, _, _ = a.sb.From("processed_jobs").Delete("", "exact").Eq("job_id", req.JobID).Execute()
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to queue job",
-		})
+		log.Printf("[%s] Failed to publish: %v", req.JobID, err)
+		// rollback
+		return c.Status(500).JSON(fiber.Map{"error": "failed to queue job"})
 	}
+	log.Printf("[%s] Job published to RabbitMQ", req.JobID)
 
 	log.Printf("[%s] Accepted — query: %q, location: %s", req.JobID, req.Query, req.Location)
 
@@ -366,7 +363,7 @@ func main() {
 
 	v1 := fiberApp.Group("/api/v1")
 	v1.Post("/scrape", app.handleScrape)
-	v1.Get("/job-status/:jobId", app.handleJobStatus)
+	v1.Get("/job-status/:job_id", app.handleJobStatus)
 
 	// Start server in a goroutine so shutdown can be handled cleanly
 	go func() {
