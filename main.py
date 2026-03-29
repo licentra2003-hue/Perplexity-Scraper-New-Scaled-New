@@ -1,4 +1,3 @@
-
 # Final API ready
 import asyncio
 import json
@@ -225,7 +224,7 @@ class PerplexityScraper:
 
         try:
             await page.goto("https://www.perplexity.ai/", wait_until="domcontentloaded")
-            await self._random_wait(2.0, 4.0)
+            await self._random_wait(0.4, 0.8)
             await self._handle_popups(page)
             await self._human_search(page, query)
 
@@ -293,7 +292,7 @@ class PerplexityScraper:
                 close_button = page.locator(selector).first
                 if await close_button.is_visible(timeout=1500):
                     await close_button.click()
-                    await self._random_wait(0.5, 1.0)
+                    await self._random_wait(0.1, 0.5)
                     print(f"✓ Closed initial popup using selector: {selector}")
                     return
         except: 
@@ -304,7 +303,7 @@ class PerplexityScraper:
         try:
             self.log_messages.append("Attempting primary search method.")
             await page.wait_for_load_state('domcontentloaded')
-            await self._random_wait(1.0, 2.0)
+            await self._random_wait(0.1, 0.5)
 
             search_box = page.locator("#ask-input")
 
@@ -320,9 +319,9 @@ class PerplexityScraper:
                 raise Exception("Could not find a valid search box.")
 
             await search_box.focus()
-            await self._random_wait(0.5, 1.0)
+            await self._random_wait(0.1, 0.5)
             await search_box.fill(query, timeout=5000)
-            await self._random_wait(1.5, 3.0)
+            await self._random_wait(0.1, 0.5)
 
             await page.keyboard.press("Enter")
             self.log_messages.append("Submitted search via Enter key.")
@@ -960,6 +959,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex="https://.*-godseyes-projects\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -985,55 +985,85 @@ async def scrape_perplexity(request: ScrapeRequest):
     - **location**: Location setting (India or USA)
     - **save_files**: Whether to save results to local files
     """
+    # 1. Input Validation (HTTP 400 - Bridge will NOT retry)
+    if request.location not in LOCATION_CONFIG:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid location: {request.location}. Must be one of: {list(LOCATION_CONFIG.keys())}"
+        )
+
     scraper = PerplexityScraper()
     page = None
     context = None
+    timestamp = datetime.now().isoformat()
 
     try:
-        # Validate location
-        if request.location not in LOCATION_CONFIG:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid location: {request.location}. Must be 'India' or 'USA'"
+        # 2. Browser/Page Initialization with internal try/except
+        try:
+            user_agent = random.choice(scraper.user_agents)
+            page, context = await browser_manager.create_page(request.location, user_agent)
+        except Exception as e:
+            return ScrapeResponse(
+                success=False,
+                query=request.query,
+                ai_overview_text="",
+                source_links=[],
+                total_interactions=0,
+                timestamp=timestamp,
+                error_message=f"Browser initialization failed: {str(e)}"
             )
 
-        # Create page with settings
-        user_agent = random.choice(scraper.user_agents)
-        page, context = await browser_manager.create_page(request.location, user_agent)
-
+        # 3. Perform Scraping and result assembly
         print(f"Starting scrape for query: {request.query} (Location: {request.location})")
+        
+        try:
+            # This internal scraper.scrape already has its own try/except returning ScrapingResult(success=False)
+            result = await scraper.scrape(page, request.query, request.save_files)
 
-        # Perform scraping
-        result = await scraper.scrape(page, request.query, request.save_files)
+            # Convert to response model
+            source_links_response = [
+                SourceLinkResponse(
+                    text=link.text,
+                    url=link.url,
+                    raw_url=link.raw_url,
+                    highlight_fragment=link.highlight_fragment,
+                    related_claim=link.related_claim,
+                    extraction_order=link.extraction_order
+                )
+                for link in result.source_links
+            ]
 
-        # Convert to response model
-        source_links_response = [
-            SourceLinkResponse(
-                text=link.text,
-                url=link.url,
-                raw_url=link.raw_url,
-                highlight_fragment=link.highlight_fragment,
-                related_claim=link.related_claim,
-                extraction_order=link.extraction_order
+            return ScrapeResponse(
+                query=result.query,
+                ai_overview_text=result.ai_overview_text,
+                source_links=source_links_response,
+                total_interactions=result.total_interactions,
+                success=result.success,
+                timestamp=result.timestamp,
+                error_message=result.error_message
             )
-            for link in result.source_links
-        ]
+        except Exception as e:
+            return ScrapeResponse(
+                success=False,
+                query=request.query,
+                ai_overview_text="",
+                source_links=[],
+                total_interactions=0,
+                timestamp=timestamp,
+                error_message=f"Scraping logic failed: {str(e)}"
+            )
 
-        response = ScrapeResponse(
-            query=result.query,
-            ai_overview_text=result.ai_overview_text,
-            source_links=source_links_response,
-            total_interactions=result.total_interactions,
-            success=result.success,
-            timestamp=result.timestamp,
-            error_message=result.error_message
+    except Exception as general_error:
+        # Last resort catch-all
+        return ScrapeResponse(
+            success=False,
+            query=request.query,
+            ai_overview_text="",
+            source_links=[],
+            total_interactions=0,
+            timestamp=timestamp,
+            error_message=f"Unexpected error: {str(general_error)}"
         )
-
-        return response
-
-    except Exception as e:
-        print(f"Error in scrape endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
         # Cleanup
