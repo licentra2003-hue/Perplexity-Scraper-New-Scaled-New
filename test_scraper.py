@@ -47,6 +47,7 @@ async def run_test():
         try:
             payload = {
                 "job_id": job_id,
+                "product_id": "b36b116e-0c19-4fa0-b669-835bd76c820e", # User provided product_id
                 "query": query,
                 "location": "India",
                 "callback_url": CALLBACK_URL

@@ -12,7 +12,20 @@ import time
 GATEWAY_URL = "http://localhost:8000/api/v1/scrape"
 CALLBACK_HOST = "0.0.0.0"
 CALLBACK_PORT = 9999
-NUM_QUERIES = 5 # Using 5 for a clean test of 1 per browser (or 2-per-worker in reality)
+NUM_QUERIES = 20
+
+TEST_QUERIES = [
+    "What is the current price of Bitcoin?",
+    "How to make a perfect Neapolitan pizza?",
+    "Latest breakthroughs in Quantum Computing 2024",
+    "Best places to visit in Japan during spring",
+    "How does a transformer neural network work?",
+    "Benefits of Mediterranean diet for heart health",
+    "History of the Ottoman Empire summary",
+    "Top 5 electric SUVs with highest range in 2024",
+    "Who won the most Oscars in history?",
+    "NASA's next mission to Mars details"
+]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,24 +50,25 @@ async def receive_callback(request: Request):
 def start_server():
     uvicorn.run(app, host=CALLBACK_HOST, port=CALLBACK_PORT, log_level="error")
 
-async def submit_job(client, job_id):
+async def submit_job(client, job_id, query):
     payload = {
         "job_id": job_id,
-        "query": "What is the capital of India?",
+        "product_id": "b36b116e-0c19-4fa0-b669-835bd76c820e", # User provided product_id
+        "query": query,
         "location": "India",
         "callback_url": f"http://host.docker.internal:{CALLBACK_PORT}/callback"
     }
     try:
         resp = await client.post(GATEWAY_URL, json=payload, timeout=10)
         if resp.status_code == 202:
-            logger.info(f"📤 Job {job_id} Accepted")
+            logger.info(f"📤 Job {job_id} Accepted: {query[:30]}...")
         else:
             logger.error(f"❌ Job {job_id} Rejected: {resp.text}")
     except Exception as e:
         logger.error(f"❌ Connection Error for {job_id}: {e}")
 
 async def main():
-    logger.info(f"🚀 Firing {NUM_QUERIES} queries concurrently...")
+    logger.info(f"🚀 Firing {NUM_QUERIES} unique queries concurrently...")
     
     # Start Fast API in background
     server_thread = Thread(target=start_server, daemon=True)
@@ -66,14 +80,20 @@ async def main():
     async with httpx.AsyncClient() as client:
         start_time = time.time()
         
-        # Submit all at once
-        tasks = [submit_job(client, f"stress-test-{i}-{uuid.uuid4().hex[:4]}") for i in range(NUM_QUERIES)]
+        # Submit unique queries
+        tasks = []
+        for i in range(NUM_QUERIES):
+            query = TEST_QUERIES[i % len(TEST_QUERIES)]
+            job_id = f"stress-test-{i}-{uuid.uuid4().hex[:4]}"
+            tasks.append(submit_job(client, job_id, query))
+        
         await asyncio.gather(*tasks)
         
-        logger.info("📡 All 5 queries sent! Worker cluster is now scraping in parallel...")
+        logger.info(f"📡 All {NUM_QUERIES} queries sent! Worker cluster is now scraping in parallel...")
         
         try:
-            await asyncio.wait_for(finish_event.wait(), timeout=180)
+            # Increased timeout to 300s because Perplexity is much slower with these jitter/humanization fixes
+            await asyncio.wait_for(finish_event.wait(), timeout=300)
             duration = time.time() - start_time
             logger.info(f"🎉 SUCCESS! Total time for {NUM_QUERIES} queries: {duration:.2f}s")
         except asyncio.TimeoutError:

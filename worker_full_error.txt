@@ -1,0 +1,100 @@
+worker-1  |     from playwright_stealth import stealth_async
+worker-1  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-1  | Traceback (most recent call last):
+worker-1  |   File "/app/worker.py", line 15, in <module>
+worker-1  |     from scraper import BrowserManager, PerplexityScraper
+worker-1  |   File "/app/scraper.py", line 12, in <module>
+worker-1  |     from playwright_stealth import stealth_async
+worker-1  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-1  | Traceback (most recent call last):
+worker-1  |   File "/app/worker.py", line 15, in <module>
+worker-1  |     from scraper import BrowserManager, PerplexityScraper
+worker-1  |   File "/app/scraper.py", line 12, in <module>
+worker-1  |     from playwright_stealth import stealth_async
+worker-1  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-1  | Traceback (most recent call last):
+worker-1  |   File "/app/worker.py", line 15, in <module>
+worker-1  |     from scraper import BrowserManager, PerplexityScraper
+worker-1  |   File "/app/scraper.py", line 12, in <module>
+worker-1  |     from playwright_stealth import stealth_async
+worker-1  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-5  |     from playwright_stealth import stealth_async
+worker-5  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-5  | Traceback (most recent call last):
+worker-5  |   File "/app/worker.py", line 15, in <module>
+worker-5  |     from scraper import BrowserManager, PerplexityScraper
+worker-5  |   File "/app/scraper.py", line 12, in <module>
+worker-5  |     from playwright_stealth import stealth_async
+worker-5  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-5  | Traceback (most recent call last):
+worker-5  |   File "/app/worker.py", line 15, in <module>
+worker-5  |     from scraper import BrowserManager, PerplexityScraper
+worker-5  |   File "/app/scraper.py", line 12, in <module>
+worker-5  |     from playwright_stealth import stealth_async
+worker-5  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-5  | Traceback (most recent call last):
+worker-2  |     from playwright_stealth import stealth_async
+worker-5  |   File "/app/worker.py", line 15, in <module>
+worker-5  |     from scraper import BrowserManager, PerplexityScraper
+worker-2  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-2  | Traceback (most recent call last):
+worker-2  |   File "/app/worker.py", line 15, in <module>
+worker-2  |     from scraper import BrowserManager, PerplexityScraper
+worker-2  |   File "/app/scraper.py", line 12, in <module>
+worker-5  |   File "/app/scraper.py", line 12, in <module>
+worker-5  |     from playwright_stealth import stealth_async
+worker-5  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-4  |     from playwright_stealth import stealth_async
+worker-2  |     from playwright_stealth import stealth_async
+worker-4  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-2  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-2  | Traceback (most recent call last):
+worker-2  |   File "/app/worker.py", line 15, in <module>
+worker-4  | Traceback (most recent call last):
+worker-4  |   File "/app/worker.py", line 15, in <module>
+worker-4  |     from scraper import BrowserManager, PerplexityScraper
+worker-4  |   File "/app/scraper.py", line 12, in <module>
+worker-4  |     from playwright_stealth import stealth_async
+worker-4  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-4  | Traceback (most recent call last):
+worker-4  |   File "/app/worker.py", line 15, in <module>
+worker-4  |     from scraper import BrowserManager, PerplexityScraper
+worker-4  |   File "/app/scraper.py", line 12, in <module>
+worker-4  |     from playwright_stealth import stealth_async
+worker-4  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-4  | Traceback (most recent call last):
+worker-4  |   File "/app/worker.py", line 15, in <module>
+worker-4  |     from scraper import BrowserManager, PerplexityScraper
+worker-4  |   File "/app/scraper.py", line 12, in <module>
+worker-4  |     from playwright_stealth import stealth_async
+worker-4  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-2  |     from scraper import BrowserManager, PerplexityScraper
+worker-3  |     from playwright_stealth import stealth_async
+worker-3  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-3  | Traceback (most recent call last):
+worker-3  |   File "/app/worker.py", line 15, in <module>
+worker-3  |     from scraper import BrowserManager, PerplexityScraper
+worker-3  |   File "/app/scraper.py", line 12, in <module>
+worker-3  |     from playwright_stealth import stealth_async
+worker-3  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-3  | Traceback (most recent call last):
+worker-3  |   File "/app/worker.py", line 15, in <module>
+worker-3  |     from scraper import BrowserManager, PerplexityScraper
+worker-3  |   File "/app/scraper.py", line 12, in <module>
+worker-3  |     from playwright_stealth import stealth_async
+worker-3  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-3  | Traceback (most recent call last):
+worker-3  |   File "/app/worker.py", line 15, in <module>
+worker-3  |     from scraper import BrowserManager, PerplexityScraper
+worker-2  |   File "/app/scraper.py", line 12, in <module>
+worker-2  |     from playwright_stealth import stealth_async
+worker-2  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-2  | Traceback (most recent call last):
+worker-3  |   File "/app/scraper.py", line 12, in <module>
+worker-3  |     from playwright_stealth import stealth_async
+worker-3  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)
+worker-2  |   File "/app/worker.py", line 15, in <module>
+worker-2  |     from scraper import BrowserManager, PerplexityScraper
+worker-2  |   File "/app/scraper.py", line 12, in <module>
+worker-2  |     from playwright_stealth import stealth_async
+worker-2  | ImportError: cannot import name 'stealth_async' from 'playwright_stealth' (/usr/local/lib/python3.11/site-packages/playwright_stealth/__init__.py)

@@ -221,6 +221,8 @@ class BrowserManager:
         )
         await context.grant_permissions(location_settings.get('permissions', []))
         page = await context.new_page()
+        # Fix 1: Apply stealth patches to every newly created page
+        await self.stealth.apply_stealth_async(page)
         return page, context
 
 
@@ -228,16 +230,20 @@ class BrowserManager:
 
 class PerplexityScraper:
     user_agents = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
     ]
 
     async def scrape(self, page: Page, query: str) -> ScrapingResult:
         timestamp = datetime.now().isoformat()
 
         try:
-            await page.goto("https://www.perplexity.ai/", wait_until="domcontentloaded")
+            # Fix 5: Startup jitter to prevent simultaneous IP hits
+            await self._random_wait(2.0, 5.0)
+
+            # Fix 3: Increase navigation timeout for high load
+            await page.goto("https://www.perplexity.ai/", wait_until="domcontentloaded", timeout=60000)
             await self._random_wait(2.0, 4.0)
             await self._handle_popups(page)
             await self._human_search(page, query)
@@ -622,7 +628,16 @@ class PerplexityScraper:
         return "\n".join(lines).strip()
 
     def _is_bot_detected(self, page_text: str) -> bool:
-        return any(p in page_text.lower() for p in ["verify you are human", "captcha", "are you a robot"])
+        bot_signals = [
+            "verify you are human", 
+            "captcha", 
+            "are you a robot",
+            "just a moment", # Cloudflare signal
+            "checking your browser", # Cloudflare signal
+            "enable javascript and cookies", # Cloudflare signal
+            "ray id", # Cloudflare signal
+        ]
+        return any(p in page_text.lower() for p in bot_signals)
 
     async def _random_wait(self, min_s: float, max_s: float):
         await asyncio.sleep(random.uniform(min_s, max_s))

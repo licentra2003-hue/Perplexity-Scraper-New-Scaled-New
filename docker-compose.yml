@@ -40,7 +40,8 @@ services:
       - PROXY_SERVER=${PROXY_SERVER}
       - PROXY_USERNAME=${PROXY_USERNAME}
       - PROXY_PASSWORD=${PROXY_PASSWORD}
-      - WORKER_CONCURRENCY=5
+      - WORKER_CONCURRENCY=4
+      - STORAGE_MODE_API=${STORAGE_MODE_API:-false}
       - MAX_RETRIES=3
     depends_on:
       - rabbitmq

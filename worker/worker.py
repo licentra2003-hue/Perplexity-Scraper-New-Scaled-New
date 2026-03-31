@@ -110,6 +110,11 @@ async def process_job(message: aio_pika.IncomingMessage, client: Client, channel
             retry_count = int(message.headers.get("x-retry-count", 0)) if message.headers else 0
             log.info(f"[{job_id}] Starting — query: {query!r}, location: {location}, attempt: {retry_count + 1}/{MAX_RETRIES + 1}")
 
+            # Jitter: Stagger requests to prevent all workers from hitting the target domain simultaneously
+            jitter_delay = random.uniform(1.0, 10.0)
+            log.info(f"[{job_id}] Applying {jitter_delay:.2f}s startup jitter...")
+            await asyncio.sleep(jitter_delay)
+
             await update_status(client, job_id, "processing")
             await ensure_browser_healthy()
 
@@ -124,6 +129,10 @@ async def process_job(message: aio_pika.IncomingMessage, client: Client, channel
                     await context.close()
                 except Exception:
                     pass
+
+            # Explicit check to ensure retry mechanism triggers on transient bot blocks
+            if not result.success or not result.ai_overview_text.strip():
+                raise Exception("Empty result or unsuccessful scrape detected - likely blocked by bot protection. Triggering retry.")
 
             callback_payload = {
                 "job_id": job_id,
@@ -308,6 +317,7 @@ async def _save_result(
         }
 
         row = {
+            "job_id": job_id,                      # UNIQUE constraint for deduplication
             "optimization_prompt": result.query,   # NOT NULL — must be set
             "raw_serp_results": raw_serp,
         }
@@ -316,10 +326,10 @@ async def _save_result(
             row["product_id"] = product_id
 
         if DEBUG_MODE:
-            log.info(f"[{job_id}] 🐛 DEBUG: Inserting into product_analysis_perplexity")
+            log.info(f"[{job_id}] 🐛 DEBUG: Upserting into product_analysis_perplexity")
             log.info(f"[{job_id}] 🐛 DEBUG: Row keys: {list(row.keys())}")
 
-        response = client.table("product_analysis_perplexity").insert(row).execute()
+        response = client.table("product_analysis_perplexity").upsert(row, on_conflict="job_id").execute()
 
         if DEBUG_MODE:
             log.info(f"[{job_id}] 🐛 DEBUG: Supabase response data: {response.data}")

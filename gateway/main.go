@@ -53,6 +53,7 @@ func getEnv(key, fallback string) string {
 
 type ScrapeRequest struct {
 	JobID       string `json:"job_id"`
+	ProductID   string `json:"product_id"`
 	Query       string `json:"query"`
 	Location    string `json:"location"`
 	CallbackURL string `json:"callback_url"`
@@ -167,17 +168,22 @@ func (a *App) handleScrape(c *fiber.Ctx) error {
 		"callback_url": req.CallbackURL,
 		"engine":       "perplexity",
 	}
-	_, _, err = a.sb.From("processed_jobs").Insert(row, false, "exact", "", "").Execute()
+
+	log.Printf("[%s] Registering job in DB: %+v", req.JobID, row)
+
+	body, count, err := a.sb.From("processed_jobs").Insert(row, false, "", "representation", "").Execute()
 	if err != nil {
-		log.Printf("[DB] Insert error: %v", err)
+		log.Printf("[%s] [DB ERROR] Insert failed: %v | Body: %s", req.JobID, err, string(body))
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "failed to register job",
 		})
 	}
+	log.Printf("[%s] [DB OK] Job registered (count: %d)", req.JobID, count)
 
 	// --- Publish to RabbitMQ ---
-	body, err := json.Marshal(map[string]string{
+	body, err = json.Marshal(map[string]string{
 		"job_id":       req.JobID,
+		"product_id":   req.ProductID,
 		"query":        req.Query,
 		"location":     req.Location,
 		"callback_url": req.CallbackURL,
